@@ -1,0 +1,35 @@
+# Ignorar todo el core de GLPI (copiado para autocompletado del IDE)
+/ajax/
+/bin/
+/config/
+/css/
+/dependency_injection/
+/files/
+/front/
+/inc/
+/install/
+/lib/
+/locales/
+/marketplace/
+/public/
+/resources/
+/routes/
+/src/
+/templates/
+/vendor/
+/version/
+
+# Archivos raíz de GLPI
+/apirest.md
+/CHANGELOG.md
+/CONTRIBUTING.md
+/index.html
+/INSTALL.md
+/LICENSE
+/SECURITY.md
+/SUPPORT.md
+/composer.json
+/composer.lock
+
+# IDEs
+.idea/
