@@ -14,55 +14,49 @@ It contains everything learned about this project's setup, conventions, and pitf
 
 | Component | Detail |
 |-----------|--------|
-| Version | **GLPI 11.0.7** (detect via `docker exec glpi_server ls //var/www/html/glpi/version/`) |
+| Version | **GLPI 11.0.7** |
 | Image | `diouxx/glpi:latest` |
 | Container | `glpi_server` |
 | Network | `default_glpi_network` |
 | URL | `http://localhost:81` |
 | DB | MySQL 8.0 (`mysql_glpi`), database `glpidb`, user `glpi` / `glpi_password` |
-| PHP | 8.3.14 |
+| PHP | 8.3+ (Alpine) |
 | CLI | `bin/console` (always use `--allow-superuser` when running as root) |
 
 ## Directory Structure
 
 ```
-Modulos-GLPI/                  ← Open THIS folder as project in IDE
-├── dashboard/                 ← Your plugins (live editing → Docker volume)
-│   ├── setup.php
-│   ├── hook.php (optional)
-│   ├── front/
-│   ├── ajax/
-│   ├── js/
-│   └── css/
-├── src/                       ← GLPI core (namespaced classes, PSR-4)
-├── inc/                       ← GLPI bootstrap (includes.php — nearly empty in v11)
-├── vendor/                    ← Composer dependencies (Symfony, etc.)
-├── config/                    ← GLPI config
-├── front/, ajax/, bin/, ...
-├── AGENTS.md                  ← This file
-├── .gitignore                 ← Excludes all GLPI core from version control
+GLPI-YagoOteroMartinez/         ← Open THIS folder as project in IDE
+├── plugins/                    ← ONLY this subfolder is bind-mounted to Docker
+│   └── dashboard/              ← Your GLPI plugin (live editing → instant in container)
+│       ├── setup.php
+│       ├── hook.php (optional)
+│       ├── front/
+│       ├── ajax/
+│       ├── js/
+│       └── css/
+├── src/                        ← GLPI core flat copy (for IDE autocomplete)
+├── inc/                        ← PSR-4 + legacy bootstrap
+├── vendor/                     ← Composer deps
+├── config/                     ← DB config
+├── ajax/, bin/, css/, front/, templates/, ...
+├── AGENTS.md                   ← This file
+├── .gitignore                  ← Excluye todo el core de GLPI
 └── README.md
 ```
 
 ### Docker Volume Mount
 
-The local folder `C:\Users\Yago\Documents\AA Programacion\Modulos-GLPI` is **bind-mounted** to `/var/www/html/glpi/plugins` inside the container. Changes are instant — no `docker cp` needed.
+The local folder `C:\Users\Yago\Documents\Programacion\GLPI-YagoOteroMartinez\plugins` is **bind-mounted** to `/var/www/html/glpi/plugins` inside the container. Only the `plugins/` subfolder goes to Docker — the GLPI flat copy stays local for IDE support.
 
-The container was recreated manually with `docker run -d` to add this bind mount.
-Named volumes `glpi_data` and `glpi_config` hold the rest of GLPI.
-
-### How the Flat Copy Was Created
+The GLPI core files live inside the container (not on the host). For IDE autocomplete, you can pull a flat copy from the container:
 
 ```bash
-# From container to local (all dirs except plugins/)
+# Create a flat GLPI copy alongside the plugin (optional, for IDE support)
+mkdir ../glpi-flat
 for dir in ajax bin config css dependency_injection files front inc install \
            lib locales marketplace public resources routes src templates vendor version; do
-    docker cp glpi_server://var/www/html/glpi/$dir/. "./$dir/"
-done
-
-# Root-level files
-for f in $(docker exec glpi_server ls -p //var/www/html/glpi/ | grep -v '/'); do
-    docker cp glpi_server://var/www/html/glpi/"$f" "./$f"
+    docker cp glpi_server://var/www/html/glpi/$dir/. "../glpi-flat/$dir/"
 done
 ```
 
@@ -119,7 +113,7 @@ These mutate the user's GLPI instance and they react strongly to unsolicited sta
 
 ## Docker Container Recreation Pattern
 
-When the container needs to be recreated (e.g., to change volume mounts):
+When the container needs to be recreated:
 
 1. Extract current settings with `docker inspect`:
    ```bash
@@ -127,8 +121,24 @@ When the container needs to be recreated (e.g., to change volume mounts):
    docker inspect glpi_server --format '{{json .Config.Env}}'
    ```
 2. Stop and remove: `docker stop glpi_server && docker rm glpi_server`
-3. Recreate with `docker run -d` using extracted settings + the new bind mount
-4. **Ask permission first** — user may decline
+3. Recreate with:
+   ```bash
+   docker run -d \
+     --name glpi_server \
+     --network default_glpi_network \
+     -p 81:80 \
+     -v "//c/Users/Yago/Documents/Programacion/GLPI-YagoOteroMartinez/plugins://var/www/html/glpi/plugins" \
+     diouxx/glpi:latest
+   ```
+4. Re-install DB schema:
+   ```bash
+   docker exec glpi_server php //var/www/html/glpi/bin/console database:configure \
+     --db-host=mysql_glpi --db-port=3306 --db-name=glpidb \
+     --db-user=glpi --db-password=glpi_password --allow-superuser --no-interaction
+   docker exec glpi_server php //var/www/html/glpi/bin/console database:install \
+     --allow-superuser --no-interaction
+   ```
+5. **Ask permission first** — user may decline
 
 ## .gitignore Pattern
 
