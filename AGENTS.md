@@ -274,6 +274,27 @@ GLPI 11 provides a rich set of PHP helpers and widgets. Avoid raw `echo '<div>..
 | `Html::closeForm($display)` | Closes a `<form>` with CSRF token |
 | `Html::requestRefresh()` | Meta tag to auto-refresh page |
 
+### CRITICAL: Echo vs Return en los helpers Html
+
+La mayoría de los helpers Html usan **`return`**, NO `echo`. Si los llamas sin `echo`, no producen salida visible — no hay error, simplemente no se ve nada.
+
+| Método | ¿Echo o return? | Uso correcto |
+|--------|-----------------|--------------|
+| `Html::textarea($opts)` | **echo** (display=true por defecto) | `Html::textarea([...])` |
+| `Html::submit($caption, $opts)` | **return** | `echo Html::submit('...', [...])` |
+| `Html::link($text, $url, $opts)` | **return** | `echo Html::link('...', '#', [...])` |
+| `Html::input($name, $opts)` | **return** | `echo Html::input('...', [...])` |
+| `Html::hidden($name, $opts)` | **return** | `echo Html::hidden('...', [...])` |
+| `Html::select($name, $values, $opts)` | **return** | `echo Html::select(...)` |
+| `Html::closeForm($display)` | **echo** (display=true por defecto) | `Html::closeForm()` |
+| `Html::showSimpleForm(...)` | **echo** | `Html::showSimpleForm(...)` |
+| `Html::getSimpleForm(...)` | **return** | `echo Html::getSimpleForm(...)` |
+| `Html::scriptBlock($js)` | **echo** | `Html::scriptBlock('...')` |
+| `Html::script($url, $opts)` | **echo** | `Html::script('/path/file.js')` |
+| `Html::css($url)` | **echo** | `Html::css('/path/file.css')` |
+
+**Cómo detectarlo**: busca en `src/Html.php` — si el método termina con `return sprintf(...)`, necesita `echo`. Si tiene `echo $out; return true`, no necesita `echo`. O usa `ob_start(); Metodo(); $out = ob_get_clean();` — si `$out` está vacío, el método usa `return`.
+
 ### Dropdowns (select2 searchable combos)
 
 | Method | Purpose |
