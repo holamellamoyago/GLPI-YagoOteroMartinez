@@ -417,3 +417,38 @@ The `glpi-plugin-development` skill has the full playbook including:
 - Hook implementations (post_item_form, item_update)
 - AJAX endpoint setup
 - Common pitfalls table
+
+## GLPI 11: Static plugin assets (JS/CSS) require symlink in public/
+
+GLPI 11 uses Symfony with document root at `public/`. Plugin assets under
+`plugins/<name>/js/` and `plugins/<name>/css/` are NOT automatically served.
+You must create symlinks from `public/plugins/<name>/` to the actual plugin dirs:
+
+```bash
+docker exec glpi_server mkdir -p //var/www/html/glpi/public/plugins/<name>
+docker exec glpi_server ln -sf //var/www/html/glpi/plugins/<name>/js //var/www/html/glpi/public/plugins/<name>/js
+docker exec glpi_server ln -sf //var/www/html/glpi/plugins/<name>/css //var/www/html/glpi/public/plugins/<name>/css
+```
+
+Without these symlinks, plugin JS/CSS return 404 "No route found" errors.
+This applies to ALL GLPI 11 plugins that serve static assets, not just glpIA.
+
+Note: `Plugin::getWebDir()` is deprecated in GLPI 11. The message says "All plugins
+resources should be accessed from the `/plugins/` path" — but this only works if the
+symlinks exist under `public/`.
+
+GLPI 11 uses TinyMCE for all rich text fields (ticket description, followups, tasks, solutions).
+When injecting JS buttons near textareas via hooks:
+
+- **Textareas are hidden**: TinyMCE replaces `<textarea>` with `.tox-tinymce` containers.
+  The original textarea stays in the DOM with `style="display:none"`.
+- **Timing matters**: TinyMCE.init() runs AFTER the page DOM is ready. `.tox-tinymce` containers
+  don't exist when `DOMContentLoaded` fires.
+- **Solution**: Use `setInterval` retry (300ms x 20) waiting for `.tox-tinymce` to appear,
+  PLUS MutationObserver for dynamically-loaded timeline forms.
+- **Reading content**: Use `tinymce.get(textareaId).getContent({format:'text'})` for editors,
+  fall back to `textarea.value` for plain textareas.
+- **Writing content**: Use `tinymce.get(textareaId).setContent(text)` for editors,
+  fall back to `textarea.value = text` + dispatch `input` event.
+- **Button placement**: Put button AFTER `.tox-tinymce` container (not the hidden textarea).
+  Use `editor.getContainer().insertAdjacentElement('afterend', btn)`.
